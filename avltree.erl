@@ -20,14 +20,14 @@ main() ->	BT = initBT(),
   BT6 = insertBT(BT5, 1),
   BT7 = insertBT(BT6, 4),
   BT8 = insertBT(BT7, 7),
-  printBT(BT8, "Binary"),
-  BT8.
+  printBT(BT8, "Binary.dot"),
+  isBalanced(BT8).
 
 
 
 
   printBT(Btree, FileName) ->
-    util:logging(FileName, "digraph G {\n"),
+    util:logging(FileName, "digraph G {\n\t"),
     printLeaf(Btree, FileName),
     util:logging(FileName, "}").
 
@@ -37,14 +37,14 @@ printLeaf({btnode,Elem,_,L,btempty}, FileName) ->
   util:logging(FileName, integer_to_list(Elem)),
   util:logging(FileName, " -> "),
   util:logging(FileName, integer_to_list(LE)),
-  util:logging(FileName, ":\n\t"),
+  util:logging(FileName, ";\n\t"),
   printLeaf(L, FileName);
 printLeaf({btnode,Elem,_,btempty, R}, FileName) ->
   {btnode, RE, _,_,_} = R,
   util:logging(FileName, integer_to_list(Elem)),
   util:logging(FileName, " -> "),
   util:logging(FileName, integer_to_list(RE)),
-  util:logging(FileName, ":\n\t"),
+  util:logging(FileName, ";\n\t"),
   printLeaf(R, FileName);
 printLeaf({btnode, Elem, _,L,R}, FileName) ->
     {btnode, LE, _,_,_} = L,
@@ -52,9 +52,11 @@ printLeaf({btnode, Elem, _,L,R}, FileName) ->
     util:logging(FileName, integer_to_list(Elem)),
     util:logging(FileName, " -> "),
     util:logging(FileName, integer_to_list(LE)),
+    util:logging(FileName, ";\n\t"),
+    util:logging(FileName, integer_to_list(Elem)),
     util:logging(FileName, " -> "),
     util:logging(FileName, integer_to_list(RE)),
-    util:logging(FileName, ":\n\t"),
+    util:logging(FileName, ";\n\t"),
     printLeaf(L, FileName),
   printLeaf(R, FileName).
 
@@ -115,7 +117,26 @@ isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_n
     andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
 isBT_helper(_, _) -> false.
 
-
+isBalanced(btempty) -> true;
+isBalanced({btnode,_,_,btempty,R}) ->
+  {btnode, _, HR,_,_} = R,
+  if(HR >1) ->
+    false
+  end;
+isBalanced({btnode,_,_,L,btempty}) ->
+  {btnode, _, HR,_,_} = L,
+  if(HR >1) ->
+    false
+  end;
+isBalanced({btnode,_,_,L,R}) ->
+  {btnode, _, HL,_,_} = L,
+  {btnode, _, HR,_,_} = R,
+  Diff = HL - HR,
+  if(Diff > 1) or (Diff < -1) ->
+      false;
+  true ->
+         isBalanced(L),isBalanced(R)
+    end.
 %%
 %% Fuegt das Element in den BTree ein,
 %% es sind nur Zahlen als Werte erlaubt.
