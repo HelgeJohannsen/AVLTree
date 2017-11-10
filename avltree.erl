@@ -10,18 +10,17 @@
 -author("Helge").
 
 %% API
--export([main/0]).
+-export([main/0, run_tests/0]).
 
 main() ->	BT = initBT(),
-  BT2 = insertBT(BT, 5),
-  BT3 = insertBT(BT2, 9),
-  BT4 = insertBT(BT3, 3),
-  BT5 = insertBT(BT4, 6),
-  BT6 = insertBT(BT5, 1),
-  BT7 = insertBT(BT6, 4),
+  BT2 = insertBT(BT, 4),
+  BT3 = insertBT(BT2, 7),
+  BT4 = insertBT(BT3, 5),
+  BT5 = insertBT(BT4, 8),
+  BT6 = insertBT(BT5, 2),
+  BT7 = insertBT(BT6, 20),
   BT8 = insertBT(BT7, 7),
-  printBT(BT8, "Binary.dot"),
-  isBalanced(BT8).
+  insertBT(BT7, 6).
 
 
 
@@ -117,7 +116,16 @@ isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_n
     andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
 isBT_helper(_, _) -> false.
 
+left_rotate(({btnode, VX, HX, A,{btnode, VY,HY ,B,C}})) ->
+   {btnode, VY, HX, {btnode, VX, HY, A, B }, C}.
+
+
+right_rotate(({btnode, VY, HY,{btnode, VX, HX, A,B},C })) ->
+  {btnode, VX, HY, A, {btnode, VY, HX, B,C}}.
+
+
 isBalanced(btempty) -> true;
+isBalanced({btnode,_,_,btempty,btempty}) -> true;
 isBalanced({btnode,_,_,btempty,R}) ->
   {btnode, _, HR,_,_} = R,
   if(HR >1) ->
@@ -143,22 +151,25 @@ isBalanced({btnode,_,_,L,R}) ->
 %%
 %% Signatur | insertBT: btree x elem → btree
 %%
-insertBT(btempty, Elem) 					when is_number(Elem) -> {btnode, Elem, 1, btempty, btempty};
-insertBT(N = {btnode, Elem, _, _, _}, Elem) when is_number(Elem) -> N;
+insertBT(btempty, Elem) 					when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
 insertBT({btnode, V, _, L, R}, Elem) 		when is_number(Elem) ->
-  LN = case Elem < V of
-         true  -> insertBT(L, Elem);
-         false -> L
-       end,
-  RN = case Elem > V of
-         true  -> insertBT(R, Elem);
-         false -> R
-       end,
+  case Elem < V of
+         true  -> LN = insertBT(L, Elem), RN = R;
+         false -> RN = insertBT(R, Elem), LN = L
+  end,
   HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
   {btnode, V, HN, LN, RN};
+insertBT(N = {btnode, Elem, _, _, _}, Elem) when is_number(Elem) -> N;
 insertBT(_, _) -> ok.
 
-%%
+
+valueNode(btempty) -> 0;
+valueNode({btnode, V, _, _, _}) -> V.
+
+heightNode(btempty) -> 0;
+heightNode({btnode, _, H, _, _}) -> H.
+
+
 %% Prueft ob ein BTree leer ist.
 %%
 %% Signatur | isEmptyBT: btree → bool
@@ -184,7 +195,7 @@ equalBT(_, _) 										-> ok.
 %%
 %% Signatur | hoeheBT: btree → int
 %%
-hoeheBT(btempty) 				-> 0;
+hoeheBT(btempty) 				-> -1;
 hoeheBT({btnode, _, H, _, _}) 	-> H;
 hoeheBT(_) 						-> ok.
 
@@ -211,21 +222,58 @@ test_isBT() ->
     and not isBT(test)
     and not isBT({1, 2})
     and not isBT({btnode, notanumber, 1, btempty, btempty})
-    and not isBT({btnode, 42, 2, {btnode, 99, 1, btempty, btempty}, btempty})
-    and not isBT({btnode, 42, 2, {btnode, 99, 1, btempty, btempty}, 33})
+    and not isBT({btnode, 42, 1, {btnode, 99, 0, btempty, btempty}, btempty})
+    and not isBT({btnode, 42, 1, {btnode, 99, 0, btempty, btempty}, 33})
     and not isBT({btnode, {btnode, 99, 1, btempty, btempty}, {btnode, 99, 1, btempty, btempty}, {btnode, 99, 1, btempty, btempty}, 33})
-    and not isBT({btnode, 42, 2, btempty, {btnode, 21, 1, btempty, btempty}})
+    and not isBT({btnode, 42, 1, btempty, {btnode, 21, 0, btempty, btempty}})
     and not isBT({btnode, 42, 1, {btnode, 21, 1, btempty, btempty}, btempty})
-    and not isBT({btnode, 42, 0, btempty, btempty})
+    and not isBT({btnode, 42, -1, btempty, btempty})
     and not isBT({btnode, 42, 5, {btnode, 21, 1, btempty, btempty}, {btnode, 80, 2, {btnode, 66, 1, btempty, btempty}, btempty}})
     and not isBT({btnode, 42, 3,
       {btnode, 21, 2, btempty, {btnode, 42, 1, btempty, btempty}}, %% 42 is wrong
       {btnode, 80, 2, {btnode, 66, 1, btempty, btempty}, btempty}})
     and not isBT({btnode, 42, 3,
       {btnode, 21, 1, btempty, btempty},
-      {btnode, 80, 3, {btnode, 66, 2, {btnode, 21, 1, btempty, btempty}, btempty}, btempty}}) %% 21 is wrong
+      {btnode, 80, 2, {btnode, 66, 1, {btnode, 21, 0, btempty, btempty}, btempty}, btempty}}) %% 21 is wrong
   ,
   io:format("test_isBT: ~p~n", [RESULT]).
+
+test_left_rotate() ->
+  BT = initBT(),
+  BT2 = insertBT(BT, 4),
+  BT3 = insertBT(BT2, 7),
+  BT4 = insertBT(BT3, 5),
+  BT5 = insertBT(BT4, 8),
+  BT6 = insertBT(BT5, 2),
+  BT2A = insertBT(BT, 7),
+  BT3A = insertBT(BT2A, 8),
+  BT4A = insertBT(BT3A, 4),
+  BT5A = insertBT(BT4A, 5),
+  BT6A = insertBT(BT5A, 2),
+  Result = equalBT(left_rotate(BT6), BT6A),
+  io:format("test_left_rotate: ~p~n", [Result]).
+
+test_right_rotate() ->
+  BT = initBT(),
+  BT2 = insertBT(BT, 4),
+  BT3 = insertBT(BT2, 7),
+  BT4 = insertBT(BT3, 5),
+  BT5 = insertBT(BT4, 8),
+  BT6 = insertBT(BT5, 2),
+  BT2A = insertBT(BT, 7),
+  BT3A = insertBT(BT2A, 8),
+  BT4A = insertBT(BT3A, 4),
+  BT5A = insertBT(BT4A, 5),
+  BT6A = insertBT(BT5A, 2),
+  Result = equalBT(right_rotate(BT6A), BT6),
+  io:format("test_right_rotate: ~p~n", [Result]).
+
+test_isBalanced() ->
+  BT = initBT(),
+  BT1 = insertBT(BT,5 ),
+  BT2 = insertBT(BT1,8 ),
+  BT3 = insertBT(BT2,9 ),
+  BT4 = insertBT(BT3,11 ).
 
 test_insertBT() ->
   BT = initBT(),
@@ -234,10 +282,10 @@ test_insertBT() ->
   BT4 = insertBT(BT3, 80),
   BT5 = insertBT(BT4, 66),
   RESULT = (BT == btempty)
-    and (BT2 == {btnode, 42, 1, btempty, btempty})
-    and (BT3 == {btnode, 42, 2, {btnode, 21, 1, btempty, btempty}, btempty})
-    and (BT4 == {btnode, 42, 2, {btnode, 21, 1, btempty, btempty}, {btnode, 80, 1, btempty, btempty}})
-    and (BT5 == {btnode, 42, 3, {btnode, 21, 1, btempty, btempty}, {btnode, 80, 2, {btnode, 66, 1, btempty, btempty}, btempty}}),
+    and (BT2 == {btnode, 42, 0, btempty, btempty})
+    and (BT3 == {btnode, 42, 1, {btnode, 21, 0, btempty, btempty}, btempty})
+    and (BT4 == {btnode, 42, 1, {btnode, 21, 0, btempty, btempty}, {btnode, 80, 0, btempty, btempty}})
+    and (BT5 == {btnode, 42, 2, {btnode, 21, 0, btempty, btempty}, {btnode, 80, 1, {btnode, 66, 0, btempty, btempty}, btempty}}),
   io:format("test_insertBT: ~p~n", [RESULT]).
 
 test_isEmptyBT() ->
@@ -260,11 +308,11 @@ test_hoeheBT() ->
   BT3 = insertBT(BT2, 21),
   BT4 = insertBT(BT3, 80),
   BT5 = insertBT(BT4, 66),
-  RESULT = (hoeheBT(BT) == 0)
-    and (hoeheBT(BT2) == 1)
-    and (hoeheBT(BT3) == 2)
-    and (hoeheBT(BT4) == 2)
-    and (hoeheBT(BT5) == 3),
+  RESULT = (hoeheBT(BT) == -1)
+    and (hoeheBT(BT2) == 0)
+    and (hoeheBT(BT3) == 1)
+    and (hoeheBT(BT4) == 1)
+    and (hoeheBT(BT5) == 2),
   io:format("test_hoeheBT: ~p~n", [RESULT]).
 
 %%%%%%%%%%%%%%%%%
@@ -277,4 +325,6 @@ run_tests() ->
   test_insertBT(),
   test_isEmptyBT(),
   test_equalBT(),
-  test_hoeheBT().
+  test_hoeheBT(),
+  test_left_rotate(),
+  test_right_rotate().
