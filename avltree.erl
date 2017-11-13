@@ -13,14 +13,19 @@
 -export([main/0, run_tests/0]).
 
 main() ->	BT = initBT(),
-  BT2 = insertBT(BT, 4),
-  BT3 = insertBT(BT2, 7),
-  BT4 = insertBT(BT3, 5),
-  BT5 = insertBT(BT4, 8),
-  BT6 = insertBT(BT5, 2),
+  BT2 = insertBT(BT, 5),
+  BT3 = insertBT(BT2, 8),
+  BT4 = insertBT(BT3, 13),
+  BT5 = insertBT(BT4, 19),
+  BT6 = insertBT(BT5, 15),
   BT7 = insertBT(BT6, 20),
-  BT8 = insertBT(BT7, 7),
-  insertBT(BT7, 6).
+  BT8 = insertBT(BT7, 100),
+  BT9 = insertBT(BT8, 60),
+  BT10 = insertBT(BT9, 37),
+  BT11 = insertBT(BT10, 36),
+  BT12 = insertBT(BT11, 22),
+  BT13 = insertBT(BT12, 27),
+  insertBT(BT4, 17).
 
 
 
@@ -116,12 +121,7 @@ isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_n
     andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
 isBT_helper(_, _) -> false.
 
-left_rotate(({btnode, VX, HX, A,{btnode, VY,HY ,B,C}})) ->
-   {btnode, VY, HX, {btnode, VX, HY, A, B }, C}.
 
-
-right_rotate(({btnode, VY, HY,{btnode, VX, HX, A,B},C })) ->
-  {btnode, VX, HY, A, {btnode, VY, HX, B,C}}.
 
 
 isBalanced(btempty) -> true;
@@ -145,18 +145,43 @@ isBalanced({btnode,_,_,L,R}) ->
   true ->
          isBalanced(L),isBalanced(R)
     end.
-%%
+
+left_rotate(({btnode, VX, HX, A,{btnode, VY,HY ,B,C}})) ->
+  {btnode, VY, HX, {btnode, VX, HY, A, B }, C}.
+
+
+right_rotate(({btnode, VY, HY,{btnode, VX, HX, A,B},C })) ->
+  {btnode, VX, HY, A, {btnode, VY, HX, B,C}}.
+
 %% Fuegt das Element in den BTree ein,
 %% es sind nur Zahlen als Werte erlaubt.
 %%
 %% Signatur | insertBT: btree x elem → btree
 %%
-insertBT(btempty, Elem) 					when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
-insertBT({btnode, V, _, L, R}, Elem) 		when is_number(Elem) ->
+%% dieser Fall stellt eine Links rotation dar
+insertBT(X = {btnode,V,1,btempty,{btnode,VY, HY, _,_}}, Elem) when Elem > VY ->
+  insertBT(left_rotate(X), Elem);
+
+insertBT(X = {btnode,V,H,{btnode, VL, HL, _,_},{btnode,VY, HR, _,_}}, Elem) when HL < HR ->
+  insertBT(left_rotate(X), Elem);
+
+%% dieser Fall stellt eine RechtsLinks rotation dar
+insertBT(X = {btnode,V,1,btempty,R ={btnode,VY, HY, _,_}}, Elem) when Elem < VY ->
+  {btnode, Elem, 1,R, {btnode,V,0,btempty, btempty }};
+
+%% dieser Fall stellt eine rechts Rotation dar
+insertBT(Y = {btnode,V,1,{btnode,VX, HY, _,_},btempty}, Elem) when Elem < V ->
+  insertBT(right_rotate(Y), Elem);
+
+
+insertBT(btempty, Elem)                     when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
+insertBT({btnode, V, _, L, R}, Elem)        when is_number(Elem) ->
   case Elem < V of
-         true  -> LN = insertBT(L, Elem), RN = R;
-         false -> RN = insertBT(R, Elem), LN = L
+    true  -> LN = insertBT(L, Elem), RN = R;
+    false -> RN = insertBT(R, Elem), LN = L
   end,
+  BF = hoeheBT(L) - hoeheBT(R),
+  io:format("BF: ~p~n", [BF]),
   HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
   {btnode, V, HN, LN, RN};
 insertBT(N = {btnode, Elem, _, _, _}, Elem) when is_number(Elem) -> N;
@@ -166,8 +191,6 @@ insertBT(_, _) -> ok.
 valueNode(btempty) -> 0;
 valueNode({btnode, V, _, _, _}) -> V.
 
-heightNode(btempty) -> 0;
-heightNode({btnode, _, H, _, _}) -> H.
 
 
 %% Prueft ob ein BTree leer ist.
