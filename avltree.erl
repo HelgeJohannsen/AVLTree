@@ -13,22 +13,19 @@
 -export([main/0, run_tests/0]).
 
 main() ->	BT = initBT(),
-  BT2 = insertBT(BT, 5),
-  BT3 = insertBT(BT2, 8),
-  BT4 = insertBT(BT3, 13),
-  BT5 = insertBT(BT4, 19),
-  BT6 = insertBT(BT5, 15),
-  BT7 = insertBT(BT6, 20),
-  BT8 = insertBT(BT7, 100),
-  BT9 = insertBT(BT8, 60),
-  BT10 = insertBT(BT9, 37),
-  BT11 = insertBT(BT10, 36),
-  BT12 = insertBT(BT11, 22),
-  BT13 = insertBT(BT12, 27),
-  insertBT(BT4, 17).
-
-
-
+    BT1 = insertBT(BT,5),
+    BT2 = insertBT(BT1, 10),
+    BT3 = insertBT(BT2, 15),
+  BT4 = insertBT(BT3, 12),
+BT5 = insertBT(BT4, 14),
+BT6 = insertBT(BT5, 35),
+BT7 = insertBT(BT6, 11),
+BT8 = insertBT(BT7, 19),
+BT9 = insertBT(BT8, 13),
+BT10 = insertBT(BT9, 37),
+BT11 = insertBT(BT10, 36),
+BT12 = insertBT(BT11, 22),
+BT13 = insertBT(BT12, 27).
 
   printBT(Btree, FileName) ->
     util:logging(FileName, "digraph G {\n\t"),
@@ -110,6 +107,7 @@ isBT(_) -> false.
 %%
 isBT_helper(btempty, _) -> true;
 isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_number(H) -> %% Fehler behoben, merkt sich jetzt die Limits
+  Diff = hoeheBT(L) - hoeheBT(R),
   (case LIMITS of
      {undef, undef} 	-> true;
      {undef, HIGH} 	-> V < HIGH;
@@ -118,7 +116,7 @@ isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_n
    end)
     andalso isBT_helper(L, {LOW, V})
     andalso isBT_helper(R, {V, HIGH})
-    andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
+    andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1);
 isBT_helper(_, _) -> false.
 
 
@@ -129,17 +127,17 @@ isBalanced({btnode,_,_,btempty,btempty}) -> true;
 isBalanced({btnode,_,_,btempty,R}) ->
   {btnode, _, HR,_,_} = R,
   if(HR >1) ->
-    false
+    false;
+    true -> true
   end;
 isBalanced({btnode,_,_,L,btempty}) ->
   {btnode, _, HR,_,_} = L,
   if(HR >1) ->
-    false
+    false;
+  true -> true
   end;
 isBalanced({btnode,_,_,L,R}) ->
-  {btnode, _, HL,_,_} = L,
-  {btnode, _, HR,_,_} = R,
-  Diff = HL - HR,
+  Diff = hoeheBT(L) - hoeheBT(R),
   if(Diff > 1) or (Diff < -1) ->
       false;
   true ->
@@ -147,11 +145,19 @@ isBalanced({btnode,_,_,L,R}) ->
     end.
 
 left_rotate(({btnode, VX, HX, A,{btnode, VY,HY ,B,C}})) ->
+  io:format("rotation nach links: ~p~n",[VY]),
   {btnode, VY, HX, {btnode, VX, HY, A, B }, C}.
+left_rotate({btnode, VX, HX, A,{btnode, VY,HY ,B,C}},E) ->
+  io:format("rotation nach links: ~p~n",[VY]),
+  {btnode, VY, HX, {btnode, VX, HY, A, B }, insertBT(C,E)}.
 
 
-right_rotate(({btnode, VY, HY,{btnode, VX, HX, A,B},C })) ->
+right_rotate({btnode, VY, HY,{btnode, VX, HX, A,B},C }) ->
+  io:format("rotation nach rechts: ~p~n",[VY]),
   {btnode, VX, HY, A, {btnode, VY, HX, B,C}}.
+right_rotate({btnode, VY, HY,{btnode, VX, HX, A,B},C },E) ->
+  io:format("rotation nach rechts: ~p~n",[VY]),
+  {btnode, VX, HY, insertBT(A,E), {btnode, VY, HX, B,C}}.
 
 %% Fuegt das Element in den BTree ein,
 %% es sind nur Zahlen als Werte erlaubt.
@@ -159,33 +165,45 @@ right_rotate(({btnode, VY, HY,{btnode, VX, HX, A,B},C })) ->
 %% Signatur | insertBT: btree x elem → btree
 %%
 %% dieser Fall stellt eine Links rotation dar
-insertBT(X = {btnode,V,1,btempty,{btnode,VY, HY, _,_}}, Elem) when Elem > VY ->
-  insertBT(left_rotate(X), Elem);
-
-insertBT(X = {btnode,V,H,{btnode, VL, HL, _,_},{btnode,VY, HR, _,_}}, Elem) when HL < HR ->
-  insertBT(left_rotate(X), Elem);
-
-%% dieser Fall stellt eine RechtsLinks rotation dar
-insertBT(X = {btnode,V,1,btempty,R ={btnode,VY, HY, _,_}}, Elem) when Elem < VY ->
-  {btnode, Elem, 1,R, {btnode,V,0,btempty, btempty }};
-
-%% dieser Fall stellt eine rechts Rotation dar
-insertBT(Y = {btnode,V,1,{btnode,VX, HY, _,_},btempty}, Elem) when Elem < V ->
-  insertBT(right_rotate(Y), Elem);
+%%insertBT(W = {btnode,VW,HW,L,{btnode,VY, HY, _,_}}, Elem) when Elem > VY ->
+%%  insertBT(left_rotate(X), Elem);
 
 
-insertBT(btempty, Elem)                     when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
-insertBT({btnode, V, _, L, R}, Elem)        when is_number(Elem) ->
-  case Elem < V of
-    true  -> LN = insertBT(L, Elem), RN = R;
-    false -> RN = insertBT(R, Elem), LN = L
-  end,
-  BF = hoeheBT(L) - hoeheBT(R),
-  io:format("BF: ~p~n", [BF]),
-  HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
-  {btnode, V, HN, LN, RN};
-insertBT(N = {btnode, Elem, _, _, _}, Elem) when is_number(Elem) -> N;
-insertBT(_, _) -> ok.
+%% Linksrotation
+%% dieser Fall stellt eine Doppelrotation Rechts dar, der Baum ist Linksgewichtig und wir möchten erneut links einfgueen
+insertBT({btnode,VW,_,L ={btnode,VL, _, _,_}, btempty}, Elem) when ((Elem < VW) and (Elem > VL)) ->
+  io:format("Doppelrotation nach rechts ab: ~p~n",[VW]),
+  {btnode, Elem, 1, {btnode, VL, 0, btempty, btempty}, {btnode, VW, 0, btempty, btempty}};
+
+%% dieser Fall stellt eine DoppelRotation nach links dar
+insertBT({btnode,VW,_,btempty, {btnode,VR, _, _,_}}, Elem) when ((Elem > VW) and (Elem < VR)) ->
+  io:format("Doppelrotation nach Links: ~p~n",[VW]),
+  {btnode, Elem, 1, {btnode, VW, 0, btempty, btempty}, {btnode, VR, 0, btempty, btempty}};
+
+insertBT(btempty, Elem)                    when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
+insertBT({btnode, V, H, L,btempty},Elem)  when (Elem>V) -> {btnode, V, H, L,{btnode, Elem, 0, btempty, btempty}};
+insertBT({btnode, V, H, btempty,R},Elem)  when (Elem<V) -> {btnode, V, H, {btnode, Elem, 0, btempty, btempty},R};
+insertBT({btnode, V, H, L,R},Elem)  when (Elem>V) ->
+  {btnode, VR,HR ,LR,RR} = R,
+  Diff = hoeheBT(L) - hoeheBT(R),
+  HN = max(hoeheBT(L), hoeheBT(R)) + 1,
+  if (Diff<0)
+      -> left_rotate(insertBT(RR, Elem));
+    true ->{btnode, V, HN, L, insertBT(R, Elem)}
+  end;
+insertBT({btnode, V, H, L,R},Elem)  when (Elem<V) ->
+  {btnode, VL,HL ,LL,RL} = L,
+  Diff = hoeheBT(L) - hoeheBT(R),
+  HN = max(hoeheBT(L), hoeheBT(R)) + 1,
+  if (Diff<0)
+    -> {btnode, VL, HN, insertBT(RL, Elem),{btnode, V,H,R,LL}};
+    true ->{btnode, V, HN, insertBT(L, Elem), R}
+  end.
+
+
+
+
+
 
 
 valueNode(btempty) -> 0;

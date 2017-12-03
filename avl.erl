@@ -10,17 +10,16 @@
 -author("Helge").
 
 %% API
--export([main/0]).
+-export([main/0, setGlobals/0]).
 
-main() ->	BT = initBT(),
-  BT2 = insertBT(BT, 4),
-  BT3 = insertBT(BT2, 7),
-  BT4 = insertBT(BT3, 5),
-  BT5 = insertBT(BT4, 8),
-  BT6 = insertBT(BT5, 2),
-  BT7 = insertBT(BT6, 20),
-  BT8 = insertBT(BT7, 7),
-  insertBT(BT7, 6).
+main() ->
+  setGlobals(),
+  BT = initBT(),
+  BT1 = insertBT(BT,5),
+  BT2 = insertBT(BT1, 10),
+  BT3 = insertBT(BT2, 15),
+  BT4 = insertBT(BT3, 12),
+  deleteBT(BT4, 10).
 
 
 initBT() -> btempty.
@@ -42,51 +41,136 @@ isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_n
 isBT_helper(_, _) -> false.
 
 
-insertBT(btempty, Elem) 					when is_number(Elem) -> {btnode, Elem, 1, btempty, btempty};
-insertBT({btnode, V, H, L, R}, Elem) ->
-  case Elem > V of
-    true  -> {btnode, V, max(hoeheBT(L),hoeheBT(R)) + 1, L, insertBT(R, Elem)};
-    false -> {btnode, V, max(hoeheBT(L),hoeheBT(R)) + 1, insertBT(L, Elem), R}
-  end.
-
-
-
 hoeheBT(btempty) 				-> 0;
 hoeheBT({btnode, _, H, _, _}) 	-> H;
 hoeheBT(_) 						-> ok.
 
-%% dieser Fall stellt eine Links rotation dar
-insertBT({btnode,V,1,btempty,{btnode,VY, HY, _,_}}, Elem) when Elem > V ->
-  case Elem < VY of
-    true  -> {btnode,VY,1,{btnode, Elem, 0,btempty, btempty }, {btnode, V, 0, btempty, btempty}};
-    false -> {btnode,VY,1,{btnode, V, 0,btempty, btempty }, {btnode, Elem, 0, btempty, btempty}}
+valueBT(btempty) 				-> 0;
+valueBT({btnode, V, _, _, _}) 	-> V.
+
+highestValueBT({btnode, V,_,_,btempty}) -> V;
+highestValueBT({btnode, _,_,_,R}) -> highestValueBT(R).
+lowestValueBT({btnode, V,_,btempty,_}) -> V;
+lowestValueBT({btnode, _,_,L,_}) -> lowestValueBT(L).
+
+deleteBT({btnode, V,H,L,btempty},V) -> L;
+deleteBT({btnode, V,H,btempty,R},V) -> R;
+deleteBT({btnode, V,H,btempty,btempty},V) -> btempty;
+deleteBT({btnode, V,H,L,R},V) ->
+  {btnode, VL,HL,LL,RL} = L,
+  Diff = hoeheBT(L) - hoeheBT(R),
+  case (Diff<0) of
+      true-> {btnode,highestValueBT(L),H,deleteBT(R,highestValueBT(R)),L};
+      false-> {btnode,lowestValueBT(R),H,deleteBT(R,lowestValueBT(R)),L}
   end;
-insertBT(btnode, V, H, L, R) when (hoeheBT(L) - hoeheBT(R)) ->
 
-%% dieser Fall stellt eine rechts Rotation dar
-  insertBT({btnode,V,1,{btnode,VX, HY, _,_},btempty}, Elem) when Elem < V ->
-case Elem < VX of
-true  -> {btnode,VX,1,{btnode, Elem, 0,btempty, btempty }, {btnode, V, 0, btempty, btempty}};
-false -> {btnode,VX,1,{btnode, V, 0,btempty, btempty }, {btnode, Elem, 0, btempty, btempty}}
-end;
+deleteBT(btempty,V) -> btempty;
+deleteBT(BTree = {btnode, V,H,L,R},Elem) ->
+  LN = case Elem < V of
+         true  -> deleteBT(L, Elem);
+         false -> L
+       end,
+  RN = case Elem > V of
+         true  -> deleteBT(R, Elem);
+         false -> R
+       end,
+  HN =  max(hoeheBT(LN), hoeheBT(RN)) + 1,
+  Z = {btnode, V, HN, LN, RN}
+,balance(Z).
 
 
-insertBT(btempty, Elem)                     when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
-insertBT(Node = {btnode, V, H, L, R}, Elem)        when (Elem > V) ->
-BF = hoeheBT(L) - hoeheBT(R),
-case BF of
--1 -> RNode = left_rotate(Node), insertBT(RNode, Elem)
-end;
-insertBT(Node = {btnode, V, H, L, R}, Elem)        when (Elem < V) ->
-BF = hoeheBT(L) - hoeheBT(R),
-case BF of
-1 -> RNode = left_rotate(Node), insertBT(RNode, Elem)
-end;
-insertBT({btnode, V, _, L, R}, Elem)        when is_number(Elem) ->
-case Elem < V of
-true  -> LN = insertBT(L, Elem), RN = R;
-false -> RN = insertBT(R, Elem), LN = L
-end,
+left_rotate(({btnode, VX, HX, A,{btnode, VY,HY ,B,C}})) ->
+io:format("rotation nach links: ~p~n",[VY]),
+  NHX = (max(hoeheBT(A),hoeheBT(B))+1),
+  NHY = max(NHX,hoeheBT(C))+1,
+{btnode, VY, NHY, {btnode, VX, NHX, A, B }, C}.
+left_rotate({btnode, VX, HX, A,{btnode, VY,HY ,B,C}},E) ->
+  io:format("rotation nach links: ~p~n",[VY]),
+  {btnode, VY, HX, {btnode, VX, HY, A, B }, insertBT(C,E)}.
 
-%%insertBT(X = {btnode,V,H,{btnode, VL, HL, _,_},{btnode,VY, HR, _,_}}, Elem) when HL > HR ->
-%%  insertBT(left_rotate(X), Elem);
+
+right_rotate({btnode, VY, HY,{btnode, VX, HX, A,B},C }) ->
+  io:format("rotation nach rechts: ~p~n",[VY]),
+  NHY = (max(hoeheBT(B),hoeheBT(C))+1),
+  NHX = (max(NHY,hoeheBT(A))+1),
+  {btnode, VX, NHX, A, {btnode, VY, NHY, B,C}}.
+right_rotate({btnode, VY, HY,{btnode, VX, HX, A,B},C },E) ->
+  io:format("rotation nach rechts: ~p~n",[VY]),
+  {btnode, VX, HY, insertBT(A,E), {btnode, VY, HX, B,C}}.
+
+
+insertBT(btempty, Elem)                    when is_number(Elem) -> {btnode, Elem, 1, btempty, btempty};
+%nsertBT({btnode, V, H, L,btempty},Elem)  when (Elem>V) -> {btnode, V, H, L,{btnode, Elem, 0, btempty, btempty}};
+%insertBT({btnode, V, H, btempty,R},Elem)  when (Elem<V) -> {btnode, V, H, {btnode, Elem, 0, btempty, btempty},R};
+
+insertBT({btnode, V, H, L,R},Elem)->
+  LN = case Elem < V of
+         true  -> insertBT(L, Elem);
+         false -> L
+       end,
+  RN = case Elem > V of
+         true  -> insertBT(R, Elem);
+         false -> R
+       end,
+  HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
+  io:format("Wert: ~p~n",[V]),
+  io:format("Hoehe: ~p~n",[HN]),
+  io:format("All: ~p~n",[RN]),
+  Z = {btnode, V, HN, LN, RN},
+  balance(Z).
+
+balance(btempty) -> btempty;
+balance(W = {btnode, V, H, L,R}) ->
+  WW = dir(W),
+  WR = dir(R),
+  WL = dir(L),
+  io:format("WeightWurzel: ~p~n",[WW]),
+  io:format("WeightRechts ~p~n",[WR]),
+  io:format("WeightLinks ~p~n",[WL]),
+  case {WW,WR,WL} of
+    {balanced,_,_} -> W;
+    {rechtsrechts,rechts,_} -> CLR = util:getglobalvar(left),util:setglobalvar(left, CLR +1),left_rotate(W);
+    {linkslinks,_,links} -> CRR = util:getglobalvar(right),util:setglobalvar(right, CRR +1),left_rotate(W);
+    {linkslinks ,_,rechts} -> right_rotate({btnode, V,H,left_rotate(L),R});
+    {rechtsrechts,links,_} -> left_rotate({btnode, V, H, L, right_rotate(R)});
+    {links,_,_} -> W;
+    {rechts,_,_} -> W
+  end.
+
+dir(btempty) -> balanced;
+dir({btnode, _,_,L,R}) -> case(hoeheBT(L) - hoeheBT(R)) of
+                            1 -> links;
+                            2 -> linkslinks;
+                            -1 -> rechts;
+                            -2 -> rechtsrechts;
+                            0 -> balanced
+                          end
+.
+isBalanced(btempty) -> true;
+isBalanced({btnode,_,_,btempty,btempty}) -> true;
+isBalanced({btnode,_,_,btempty,R}) ->
+  {btnode, _, HR,_,_} = R,
+  if(HR >1) ->
+    false;
+    true -> true
+  end;
+isBalanced({btnode,_,_,L,btempty}) ->
+  {btnode, _, HR,_,_} = L,
+  if(HR >1) ->
+    false;
+    true -> true
+  end;
+isBalanced({btnode,_,_,L,R}) ->
+  Diff = hoeheBT(L) - hoeheBT(R),
+  if(Diff > 1) or (Diff < -1) ->
+    false;
+    true ->
+      isBalanced(L),isBalanced(R)
+  end.
+
+setGlobals() ->
+  util:setglobalvar(left,0),
+  util:setglobalvar(right,0),
+  util:setglobalvar(dleft,0),
+  util:setglobalvar(dright,0)
+.
