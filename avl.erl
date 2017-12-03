@@ -60,9 +60,12 @@ deleteBT({btnode, V,H,L,R},V) ->
   {btnode, VL,HL,LL,RL} = L,
   Diff = hoeheBT(L) - hoeheBT(R),
   case (Diff<0) of
-      true-> {btnode,highestValueBT(L),H,deleteBT(R,highestValueBT(R)),L};
-      false-> {btnode,lowestValueBT(R),H,deleteBT(R,lowestValueBT(R)),L}
-  end;
+      true-> VN = lowestValueBT(R),LN = L, RN = deleteBT(R,lowestValueBT(R));
+      false-> VN = highestValueBT(L),LN = deleteBT(L,highestValueBT(L)), RN = R
+  end,
+  HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
+  {btnode, VN, HN, LN, RN};
+
 
 deleteBT(btempty,V) -> btempty;
 deleteBT(BTree = {btnode, V,H,L,R},Elem) ->
