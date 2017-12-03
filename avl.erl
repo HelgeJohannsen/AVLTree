@@ -15,11 +15,29 @@
 main() ->
   setGlobals(),
   BT = initBT(),
-  BT1 = insertBT(BT,5),
-  BT2 = insertBT(BT1, 10),
+  BT1 = insertBT(BT,10),
+  BT2 = insertBT(BT1, 5),
   BT3 = insertBT(BT2, 15),
-  BT4 = insertBT(BT3, 12),
-  deleteBT(BT4, 10).
+  BT4 = insertBT(BT3, 4),
+  BT5 = insertBT(BT4, 8),
+  BT6 = insertBT(BT5, 12),
+  BT7 = insertBT(BT6, 20),
+  BT8 = insertBT(BT7, 6),
+  BT9 = insertBT(BT8, 9),
+  BT10 = insertBT(BT9, 37),
+  BT11 = insertBT(BT10, 36),
+  BT12 = insertBT(BT11, 22),
+  BT13 = insertBT(BT12, 27),
+  BT14 = insertBT(BT13, 29),
+  BT15 = insertBT(BT14, 30),
+  BT16 = insertBT(BT15, 31),
+  BT17 = insertBT(BT16, 32),
+  BT18 = insertBT(BT17, 33),
+  BT19 = insertBT(BT18, 34),
+  BT20 = insertBT(BT19, 40),
+  BT21 = insertBT(BT20, 41),
+  BT22 = insertBT(BT21, 42),
+  isBT(BT22).
 
 
 initBT() -> btempty.
@@ -29,12 +47,14 @@ isBT(_) -> false.
 %%
 isBT_helper(btempty, _) -> true;
 isBT_helper({btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_number(H) -> %% Fehler behoben, merkt sich jetzt die Limits
+  Diff = hoeheBT(L) - hoeheBT(R),
   (case LIMITS of
      {undef, undef} 	-> true;
      {undef, HIGH} 	-> V < HIGH;
      {LOW, 	undef} 	-> LOW < V;
      {LOW, 	HIGH} 	-> (LOW < V) and (V < HIGH)
    end)
+    andalso ((Diff < 2) and (Diff > -2))
     andalso isBT_helper(L, {LOW, V})
     andalso isBT_helper(R, {V, HIGH})
     andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
