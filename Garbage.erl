@@ -55,6 +55,31 @@ insertBT(W ={btnode, V, H, L, R} , Elem)        when is_number(Elem) ->
     {rechts, false, true} -> insertBT(left_rotate(W), Elem);
     {links, true, false} -> insertBT(right_rotate(W), Elem)
   end.
+
+
+
+isBalanced(btempty) -> true;
+isBalanced({btnode,_,_,btempty,btempty}) -> true;
+isBalanced({btnode,_,_,btempty,R}) ->
+  {btnode, _, HR,_,_} = R,
+  if(HR >1) ->
+    false;
+    true -> true
+  end;
+isBalanced({btnode,_,_,L,btempty}) ->
+  {btnode, _, HR,_,_} = L,
+  if(HR >1) ->
+    false;
+    true -> true
+  end;
+isBalanced({btnode,_,_,L,R}) ->
+  Diff = hoeheBT(L) - hoeheBT(R),
+  if(Diff > 1) or (Diff < -1) ->
+    false;
+    true ->
+      isBalanced(L),isBalanced(R)
+  end.
+
 BT1 = insertBT(BT,5),
 BT2 = insertBT(BT1, 10),
 BT3 = insertBT(BT2, 15),
