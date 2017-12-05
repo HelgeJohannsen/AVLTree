@@ -13,13 +13,53 @@
 -export([main/0]).
 
 
-main() ->
-  ListToDelete = [8,4,13,7,10,19,5,1,16],
-  ListToDelete2 = [8,4,13,7,10,19,5,1,16],
-  testDelete(10000), printRotations().
+main() ->runCompareInsert().
 
+runCompareInsert() -> runCompareInsert(1024).
+runCompareInsert(ListSize) when ListSize =< 16777216 -> % 2^14
+  Min = 10,
+  Max = 9999999999,
+  List = util:randomlisteD(ListSize,Min,Max),
+  testInsertTimeAVLTree(List),testInsertTimeAVL2(List), printRotations(),printRotationsJan(),
+  io:format("~nDone with ListSize ~p.~n~n", [ListSize]),
+  runCompareInsert(ListSize * 2);
+  runCompareInsert(_) -> io:format("~nDone.~n").
 
+% Ausgabe der Rotationen
+printRotations() ->   io:format("Linksrotation: ~p",[util:getglobalvar(left)]),
+                      io:format(" Rechtsrotation: ~p",[util:getglobalvar(right)]),
+                      io:format(" Doppellinksrotation: ~p",[util:getglobalvar(dleft)]),
+                      io:format(" Doppelrechtsrotation: ~p~n",[util:getglobalvar(dright)]).
 
+printRotationsJan() ->io:format("Linksrotation: ~p",[util:getglobalvar(leftrotate)]),
+                      io:format(" Rechtsrotation: ~p",[util:getglobalvar(rightrotate)]),
+                      io:format(" Doppellinksrotation: ~p",[util:getglobalvar(ddleftrotate)]),
+                      io:format(" Doppelrechtsrotation: ~p",[util:getglobalvar(ddrightrotate)]).
+
+testInsertTimeAVLTree(List) ->
+  StartTime = erlang:timestamp(),
+  insertList(avltree:initBT(),List),
+  StopTime = erlang:timestamp(),
+  Duration = round(timer:now_diff(StopTime,StartTime)/1000),
+  io:format("Dauer AVL in ms: ~p~n",[Duration]).
+
+insertList(Btree,[]) -> Btree;
+insertList(BTree,[H|Tail]) -> insertList(avltree:insertBT(BTree,H),Tail).
+
+testInsertTimeAVL2(List) ->
+  avl2:initCounter(),
+  StartTime = erlang:timestamp(),
+  insertList2(avl2:initBT(),List),
+  StopTime = erlang:timestamp(),
+  Duration = round(timer:now_diff(StopTime,StartTime)/1000),
+  io:format("Dauer AVL Vergleichsalgorithmus in ms: ~p~n",[Duration]).
+
+insertList2(Btree,[]) -> Btree;
+insertList2(BTree,[H|Tail]) -> insertList2(avl2:insertBT(BTree,H),Tail).
+
+% Erzeugt eine Liste mit x grösse und eine zweite die die gleichen Elemente
+% enthält aber nur 42% der Elemente enthält diese werden aus dem
+% Baum gelöscht
 testInsertPrintDeletePrint(Number) ->
   List = util:randomliste(Number),
   List2 = util:randomlisteD(floor(Number*0.58),0,Number),
@@ -30,26 +70,12 @@ testInsertPrintDeletePrint(Number) ->
   avltree:printBT(BTD, btD),
   avltree:isBT(BTD).
 
-printRotations() ->   io:format("Linksrotation: ~p",[util:getglobalvar(left)]),
-                      io:format(" Rechtsrotation: ~p",[util:getglobalvar(right)]),
-                      io:format(" Doppellinksrotation: ~p",[util:getglobalvar(dleft)]),
-                      io:format(" Doppelrechtsrotation: ~p",[util:getglobalvar(dright)]).
-
-testInsert(Number) -> List = util:randomliste(Number), testInsertTimeAVLTree(List),testInsertTimeBTree(List).
-
 testInsertTimeBTree(List) ->
   StartTime = erlang:timestamp(),
   insertListBTree(btree:initBT(),List),
   StopTime = erlang:timestamp(),
   Duration = round(timer:now_diff(StopTime,StartTime)/1000),
   io:format("Dauer BT in ms: ~p~n",[Duration]).
-
-testInsertTimeAVLTree(List) ->
-  StartTime = erlang:timestamp(),
-  insertList(avltree:initBT(),List),
-  StopTime = erlang:timestamp(),
-  Duration = round(timer:now_diff(StopTime,StartTime)/1000),
-  io:format("Dauer AVL in ms: ~p~n",[Duration]).
 
 insertListavl(Btree,[]) -> Btree;
 insertListavl(BTree,[H|Tail]) -> insertListavl(avl:insertBT(BTree,H),Tail).
@@ -75,9 +101,6 @@ testDeleteTime(BT, List) ->
 
 insertListBTree(Btree,[]) -> Btree;
 insertListBTree(BTree,[H|Tail]) -> insertListBTree(btree:insertBT(BTree,H),Tail).
-
-insertList(Btree,[]) -> Btree;
-insertList(BTree,[H|Tail]) -> insertList(avltree:insertBT(BTree,H),Tail).
 
 deleteList(BTree,[]) -> BTree;
 deleteList(BTree,[H|Tail]) -> deleteList(avltree:deleteBT(BTree,H),Tail).

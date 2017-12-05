@@ -30,88 +30,84 @@
 %% API
 -export([initBT/0, isBT/1,insertBT/2,deleteBT/2,printBT/2, run_tests/0]).
 
-
-  printBT(Btree, FileName) ->
-    util:logging(FileName, "digraph G {\n\t"),
-    printLeaf(Btree, FileName),
-    util:logging(FileName, "}").
-
-printLeaf({btnode,_,_,btempty,btempty}, _FileName) -> true;
-printLeaf({btnode,Elem,_,L,btempty}, FileName) ->
-  {btnode, LE, _,_,_} = L,
-  util:logging(FileName, integer_to_list(Elem)),
-  util:logging(FileName, " -> "),
-  util:logging(FileName, integer_to_list(LE)),
-  util:logging(FileName, ";\n\t"),
-  printLeaf(L, FileName);
-printLeaf({btnode,Elem,_,btempty, R}, FileName) ->
-  {btnode, RE, _,_,_} = R,
-  util:logging(FileName, integer_to_list(Elem)),
-  util:logging(FileName, " -> "),
-  util:logging(FileName, integer_to_list(RE)),
-  util:logging(FileName, ";\n\t"),
-  printLeaf(R, FileName);
-printLeaf({btnode, Elem, _,L,R}, FileName) ->
-    {btnode, LE, _,_,_} = L,
-    {btnode, RE, _,_,_} = R,
-    util:logging(FileName, integer_to_list(Elem)),
-    util:logging(FileName, " -> "),
-    util:logging(FileName, integer_to_list(LE)),
-    util:logging(FileName, ";\n\t"),
-    util:logging(FileName, integer_to_list(Elem)),
-    util:logging(FileName, " -> "),
-    util:logging(FileName, integer_to_list(RE)),
-    util:logging(FileName, ";\n\t"),
-    printLeaf(L, FileName),
-  printLeaf(R, FileName).
-
-
-
-
-
-%%
 %% Erzeugt einen leeren BTree.
-%%
-%% Signatur | initBT: (/) → btree
-%%
+%% Initialisiert glabale Variablen zum zählen der Rotationen
 initBT() ->
   util:setglobalvar(left,0),
   util:setglobalvar(right,0),
   util:setglobalvar(dleft,0),
   util:setglobalvar(dright,0),
-  util:setglobalvar(test,0),
   btempty.
 
-%%
-%% Ueberprueft ob der BTree von korrekter syntaktischer Struktur ist und ob die Semantik (Sortierung und Hoehe) korrekt ist.
-%%
-%% Signatur | isBT: btree → bool
-%%
-isBT(btempty) 					-> true;
+%% Prueft ob ein BTree leer ist.
+%% Signatur | isEmptyBT: btree → bool
+isEmptyBT(btempty)        -> true;
+isEmptyBT({btnode, _, _, _, _}) -> false;
+isEmptyBT(_)          -> ok.
+
+%% Prueft ob zwei BTrees strukturell gleich sind.
+%% Signatur | equalBT: btree x btree → bool
+equalBT(btempty, btempty)               -> true;
+equalBT({btnode, _, _, _, _}, btempty)        -> false;
+equalBT(btempty, {btnode, _, _, _, _})        -> false;
+equalBT({btnode, A, B, C, D}, {btnode, A, B, C, D}) -> true;
+equalBT({btnode, _, _, _, _}, {btnode, _, _, _, _}) -> false;
+equalBT(_, _)                     -> ok.
+
+
+%% Ueberprueft ob der BTree von korrekter syntaktischer Struktur ist,
+%% ob die Semantik (Sortierung und Hoehe) korrekt ist und
+%% ob der übergebene Baum balanciert ist.
+isBT(btempty)     -> true;
 isBT(BT = {btnode, _, _, _, _}) -> isBT_helper(BT, {undef, undef});
 isBT(_) -> false.
 %%
 isBT_helper(btempty, _) -> true;
-isBT_helper(W = {btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_number(H) -> %% Fehler behoben, merkt sich jetzt die Limits
+isBT_helper(W = {btnode, V, H, L, R} , LIMITS = {LOW, HIGH}) when is_number(V), is_number(H) ->
+%% Hilfsfunktion die den Balance Faktor des Baumes ermittelt.
   Balance = directionBT(W),
   (case LIMITS of
-     {undef, undef} 	-> true;
-     {undef, HIGH} 	-> V < HIGH;
-     {LOW, 	undef} 	-> LOW < V;
-     {LOW, 	HIGH} 	-> (LOW < V) and (V < HIGH)
+     {undef, undef}   -> true;
+     {undef, HIGH}  -> V < HIGH;
+     {LOW,  undef}  -> LOW < V;
+     {LOW,  HIGH}   -> (LOW < V) and (V < HIGH)
    end)
-    andalso ((Balance == links) or (Balance == rechts) or (Balance == balanced))    % Diese Abfrage testet ob das AVL Kriterium der balancierten Bäume eingehalten wird
+% Diese Abfrage testet ob das AVL Kriterium der balancierten Bäume eingehalten wird
+    andalso ((Balance == links) or (Balance == rechts) or (Balance == balanced))
     andalso isBT_helper(L, {LOW, V})
     andalso isBT_helper(R, {V, HIGH})
-    andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1); %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
+  %% Short-circuit-evaluating andalso to prevent max from err'ing if L or R are no BT's
+    andalso (H == max(hoeheBT(L), hoeheBT(R)) + 1);
 isBT_helper(_, _) -> false.
 
+%% Rekursionsabbruch sobald wir das Element auf ein leeres Blatt packen können.
+%% Die Höhe wird mit 0 initialisiert 
+insertBT(btempty, Elem) when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
+insertBT({btnode, V, _H, L,R},Elem)->
+  LN = case Elem < V of
+         true  -> insertBT(L, Elem);
+         false -> L
+       end,
+  RN = case Elem > V of
+         true  -> insertBT(R, Elem);
+         false -> R
+       end,
+  HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
+  Z = {btnode, V, HN, LN, RN},
+  balance(Z).
 
-% Hilfsmethode fuer deleteBT.
-highestValueBT({btnode, V,_,_,btempty}) -> V;
-highestValueBT({btnode, _,_,_,R}) -> highestValueBT(R).
-lowestValueBT({btnode, V,_,btempty,_}) -> V;
-lowestValueBT({btnode, _,_,L,_}) -> lowestValueBT(L).
+balance(btempty) -> btempty;
+balance(W = {btnode, V, H, L,R}) ->
+  WW = directionBT(W),
+  WR = directionBT(R),
+  WL = directionBT(L),
+  case {WW,WR,WL} of
+    {linkslinks ,_,rechts} ->   CDR = util:getglobalvar(dright),util:setglobalvar(dright, CDR +1),right_rotate({btnode, V,H,left_rotate(L),R});
+    {rechtsrechts,links,_} -> CDL = util:getglobalvar(dleft),util:setglobalvar(dleft, CDL +1),left_rotate({btnode, V, H, L, right_rotate(R)});
+    {rechtsrechts,_,_} -> left_rotate(W);
+    {linkslinks,_,_} -> right_rotate(W);
+    {_,_,_} -> W
+  end.
 
 % besitzt das zu löschende Element keine Kinder wird der btempty token ausgegeben
 deleteBT({btnode, V,_,btempty,btempty},V) -> btempty;
@@ -129,7 +125,7 @@ deleteBT({btnode, V,_,L,R},V) ->
   HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
   {btnode, VN, HN, LN, RN};
 
-
+% Aufbau des Baumes sollte das Element noch nicht gefunden sein.
 deleteBT(btempty,_) -> btempty;
 deleteBT({btnode, V,_,L,R},Elem) ->
   LN = case Elem < V of
@@ -143,91 +139,91 @@ deleteBT({btnode, V,_,L,R},Elem) ->
   HN =  max(hoeheBT(LN), hoeheBT(RN)) + 1,
   balance({btnode, V, HN, LN, RN}).
 
+% Hilfsmethode fuer deleteBT.
+highestValueBT({btnode, V,_,_,btempty}) -> V;
+highestValueBT({btnode, _,_,_,R}) -> highestValueBT(R).
+lowestValueBT({btnode, V,_,btempty,_}) -> V;
+lowestValueBT({btnode, _,_,L,_}) -> lowestValueBT(L).
+
+% eine Linksrotation, alle höhen werden aktualisiert und der left zähler hochgezählt.
 left_rotate(({btnode, VX, _HX, A,{btnode, VY,_HY ,B,C}})) ->
   CLR = util:getglobalvar(left),util:setglobalvar(left, CLR +1),
   NHX = (max(hoeheBT(A),hoeheBT(B))+1),
   NHY = max(NHX,hoeheBT(C))+1,
   {btnode, VY, NHY, {btnode, VX, NHX, A, B }, C}.
-
+% eine Rechtsrotation, alle höhen werden aktualisiert und der right zähler hochgezählt.
 right_rotate({btnode, VY, _HY,{btnode, VX, _HX, A,B},C }) ->
   CRR = util:getglobalvar(right),util:setglobalvar(right, CRR +1),
   NHY = (max(hoeheBT(B),hoeheBT(C))+1),
   NHX = (max(NHY,hoeheBT(A))+1),
   {btnode, VX, NHX, A, {btnode, VY, NHY, B,C}}.
 
-
-insertBT(btempty, Elem) when is_number(Elem) -> {btnode, Elem, 0, btempty, btempty};
-
-insertBT({btnode, V, _H, L,R},Elem)->
-  LN = case Elem < V of
-         true  -> insertBT(L, Elem);
-         false -> L
-       end,
-  RN = case Elem > V of
-         true  -> insertBT(R, Elem);
-         false -> R
-       end,
-  HN = max(hoeheBT(LN), hoeheBT(RN)) + 1,
-%  io:format("Wert: ~p~n",[V]),
-%  io:format("Hoehe: ~p~n",[HN]),
-%  io:format("All: ~p~n",[RN]),
-  Z = {btnode, V, HN, LN, RN},
-  balance(Z).
-
-balance(btempty) -> btempty;
-balance(W = {btnode, V, H, L,R}) ->
-  WW = directionBT(W),
-  WR = directionBT(R),
-  WL = directionBT(L),
-  case {WW,WR,WL} of
-    {linkslinks ,_,rechts} ->   CDR = util:getglobalvar(dright),util:setglobalvar(dright, CDR +1),right_rotate({btnode, V,H,left_rotate(L),R});
-    {rechtsrechts,links,_} -> CDL = util:getglobalvar(dleft),util:setglobalvar(dleft, CDL +1),left_rotate({btnode, V, H, L, right_rotate(R)});
-    {rechtsrechts,_,_} -> left_rotate(W);
-    {linkslinks,_,_} -> right_rotate(W);
-    {_,_,_} -> W
-  end.
-
-% diese Methode gibt an, Hilfe der Differenz der hoehen beider Kinder, wie rotiert werden muss
+%% diese Methode gibt mit Hilfe des Balance Faktors an, ob und wenn ja wie balanciert werden muss.
+%% Sollte das linke oder rechte Kind des Knoten kein BST sein gibt hoeheBT ein falls zurück,
+%% das abgefangen und an die übergeordneten Funktionen übergeben wird.
 directionBT({btnode, _,_,L,R}) ->
   LN = hoeheBT(L), RN = hoeheBT(R),
   if(is_number(LN) and is_number(RN))
      -> directionBT(LN-RN);
     true -> false
   end;
-directionBT(X) when X > 1 -> linkslinks;
-directionBT(X) when X < -1 -> rechtsrechts;
-directionBT(X) when X =:= 1 -> links;
-directionBT(X) when X =:= -1 -> rechts;
+
+%% Die Funktionen wandeln den Balance Faktor in token um,
+%% Die Funktionen die darauf zugreifen brauchen nur wissen ob der BST leicht oder stark 
+%% gewichtig ist linkslinks und rechtstechts stehe für ein Ungleichgewicht das
+%% die AVL Kriterien stört.    
+directionBT(BalanceFactor) when BalanceFactor > 1 -> linkslinks;
+directionBT(BalanceFactor) when BalanceFactor < -1 -> rechtsrechts;
+directionBT(BalanceFactor) when BalanceFactor =:= 1 -> links;
+directionBT(BalanceFactor) when BalanceFactor =:= -1 -> rechts;
 directionBT(_)  -> balanced.
 
-%% Prueft ob ein BTree leer ist.
-%%
-%% Signatur | isEmptyBT: btree → bool
-%%
-isEmptyBT(btempty) 				-> true;
-isEmptyBT({btnode, _, _, _, _}) -> false;
-isEmptyBT(_) 					-> ok.
 
-%%
-%% Prueft ob zwei BTrees strukturell gleich sind.
-%%
-%% Signatur | equalBT: btree x btree → bool
-%%
-equalBT(btempty, btempty) 							-> true;
-equalBT({btnode, _, _, _, _}, btempty) 				-> false;
-equalBT(btempty, {btnode, _, _, _, _}) 				-> false;
-equalBT({btnode, A, B, C, D}, {btnode, A, B, C, D}) -> true;
-equalBT({btnode, _, _, _, _}, {btnode, _, _, _, _}) -> false;
-equalBT(_, _) 										-> ok.
-
-%%
 %% Gibt die Hoehe des BTrees zurueck.
-%%
 %% Signatur | hoeheBT: btree → int
-%%
-hoeheBT(btempty) 				-> -1;
-hoeheBT({btnode, _, H, _, _}) 	-> H;
-hoeheBT(_) 						-> false.
+%% im Fehlerfall false
+hoeheBT(btempty)        -> -1;
+hoeheBT({btnode, _, H, _, _})   -> H;
+hoeheBT(_)            -> false.
+
+%% speichert einen Binärbaum in einer Datei namens des Parameters FileName
+%% ist die Datei bereits vorhanden wird in die vorhandene Datei geschrieben
+printBT(Btree, FileName) ->
+  util:logging(FileName, "digraph G {\n\t"),
+  printLeaf(Btree, FileName),
+  util:logging(FileName, "}").
+%% Rekursionsabbruch
+printLeaf({btnode,_,_,btempty,btempty}, _FileName) -> true;
+%% speichert das linke Blatt und ruft die Funktion rekursiv auf
+printLeaf({btnode,Elem,_,L,btempty}, FileName) ->
+  {btnode, LE, _,_,_} = L,
+  util:logging(FileName, integer_to_list(Elem)),
+  util:logging(FileName, " -> "),
+  util:logging(FileName, integer_to_list(LE)),
+  util:logging(FileName, ";\n\t"),
+  printLeaf(L, FileName);
+%% speichert das rechte Blatt und ruft die Funktion rekursiv auf
+printLeaf({btnode,Elem,_,btempty, R}, FileName) ->
+  {btnode, RE, _,_,_} = R,
+  util:logging(FileName, integer_to_list(Elem)),
+  util:logging(FileName, " -> "),
+  util:logging(FileName, integer_to_list(RE)),
+  util:logging(FileName, ";\n\t"),
+  printLeaf(R, FileName);
+%% speichert beide Blätter und ruft die Funktion erneut mit dem linken und dem rechten Blatt auf
+printLeaf({btnode, Elem, _,L,R}, FileName) ->
+  {btnode, LE, _,_,_} = L,
+  {btnode, RE, _,_,_} = R,
+  util:logging(FileName, integer_to_list(Elem)),
+  util:logging(FileName, " -> "),
+  util:logging(FileName, integer_to_list(LE)),
+  util:logging(FileName, ";\n\t"),
+  util:logging(FileName, integer_to_list(Elem)),
+  util:logging(FileName, " -> "),
+  util:logging(FileName, integer_to_list(RE)),
+  util:logging(FileName, ";\n\t"),
+  printLeaf(L, FileName),
+  printLeaf(R, FileName).
 
 %%%%%%%%%%%%%%%%
 %% Testfaelle %%
@@ -298,13 +294,6 @@ test_right_rotate() ->
   Result = equalBT(right_rotate(BT6A), BT6),
   io:format("test_right_rotate: ~p~n", [Result]).
 
-test_isBalanced() ->
-  BT = initBT(),
-  BT1 = insertBT(BT,5 ),
-  BT2 = insertBT(BT1,8 ),
-  BT3 = insertBT(BT2,9 ),
-  BT4 = insertBT(BT3,11 ).
-
 test_insertBT() ->
   BT = initBT(),
   BT2 = insertBT(BT, 42),
@@ -346,7 +335,7 @@ test_hoeheBT() ->
   io:format("test_hoeheBT: ~p~n", [RESULT]).
 
 %%%%%%%%%%%%%%%%%
-%%	Entrypoint %%
+%%  Entrypoint %%
 %%%%%%%%%%%%%%%%%
 run_tests() ->
   %% ADT BTree Testcases
